@@ -20,6 +20,7 @@ attention_dim = 512  # dimension of attention linear layers
 decoder_dim = 512  # dimension of decoder RNN
 dropout = 0.5
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
+print("device is {}".format(device))
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
 # Training parameters
@@ -185,7 +186,8 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
         # pack_padded_sequence is an easy trick to do this
         scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
         targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
-
+     #   scores = pack_padded_sequence(scores, decode_lengths, batch_first=True)
+     #   targets = pack_padded_sequence(targets, decode_lengths, batch_first=True)
         # Calculate loss
         loss = criterion(scores, targets)
 
