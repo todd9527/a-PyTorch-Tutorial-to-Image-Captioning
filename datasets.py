@@ -5,7 +5,8 @@ import json
 import os
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
-
+from scipy.misc import imsave
+import numpy as np
 
 # class CaptionDataset(Dataset):
 #     def __init__(self, image_dir, json_annotation_file, split, transform=None):
@@ -69,6 +70,12 @@ class CaptionDataset(Dataset):
     def __getitem__(self, i):
         # Remember, the Nth caption corresponds to the (N // captions_per_image)th image
         img = torch.FloatTensor(self.imgs[i // self.cpi] / 255.)
+        print(self.imgs[i // self.cpi].shape)
+        imnum = i//self.cpi
+        save_img = self.imgs[i // self.cpi]
+        save_img = np.rollaxis(save_img, 0,3)
+        print(save_img.shape)
+        imsave('image'+str(imnum)+'.png', save_img)
         if self.transform is not None:
             img = self.transform(img)
 
