@@ -7,14 +7,17 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import torch.nn.functional as F
 from tqdm import tqdm
+import json
 
 # Parameters
-data_folder = '/media/ssd/caption data'  # folder with data files saved by create_input_files.py
+data_folder = 'output'  # folder with data files saved by create_input_files.py
 data_name = 'coco_5_cap_per_img_5_min_word_freq'  # base name shared by data files
-checkpoint = '../BEST_checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # model checkpoint
-word_map_file = '/media/ssd/caption data/WORDMAP_coco_5_cap_per_img_5_min_word_freq.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
+checkpoint = 'checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # model checkpoint
+word_map_file = 'output/WORDMAP_coco_5_cap_per_img_5_min_word_freq.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
-cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
+cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead 
+
+captions_filename_1k = "1k_captions_testset_withattn.json"
 
 # Load model
 checkpoint = torch.load(checkpoint)
@@ -46,7 +49,7 @@ def evaluate(beam_size):
     # DataLoader
     loader = torch.utils.data.DataLoader(
         CaptionDataset(data_folder, data_name, 'TEST', transform=transforms.Compose([normalize])),
-        batch_size=1, shuffle=True, num_workers=1, pin_memory=True)
+        batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
 
     # TODO: Batched Beam Search
     # Therefore, do not use a batch_size greater than 1 - IMPORTANT!
@@ -56,7 +59,10 @@ def evaluate(beam_size):
     # references = [[ref1a, ref1b, ref1c], [ref2a, ref2b], ...], hypotheses = [hyp1, hyp2, ...]
     references = list()
     hypotheses = list()
+    references_readable = list()
+    hypotheses_readable = list() 
 
+    image_count = 0 
     # For each image
     for i, (image, caps, caplens, allcaps) in enumerate(
             tqdm(loader, desc="EVALUATING AT BEAM SIZE " + str(beam_size))):
@@ -162,12 +168,23 @@ def evaluate(beam_size):
             map(lambda c: [w for w in c if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}],
                 img_caps))  # remove <start> and pads
         references.append(img_captions)
-
+ #       print("img captions is {}".format(img_captions))
+  #      print("seq is {}".format(seq))
+        references_readable.append([" ".join([rev_word_map[w] for w in caption]) for caption in img_captions])
+        
         # Hypotheses
         hypotheses.append([w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
+        hypothesis_caption = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]
+        hypotheses_readable.append(" ".join([rev_word_map[w] for w in hypothesis_caption]))
 
         assert len(references) == len(hypotheses)
 
+        image_count += 1 
+        if image_count >= 1000:
+            json_to_save = {"hypotheses": hypotheses_readable, "references": references_readable}
+            with open("beam" + str( beam_size) + "_"+ captions_filename_1k, "w") as ofile: 
+                json.dump(json_to_save, ofile)
+            break 
     # Calculate BLEU-4 scores
     bleu4 = corpus_bleu(references, hypotheses)
 
@@ -175,5 +192,5 @@ def evaluate(beam_size):
 
 
 if __name__ == '__main__':
-    beam_size = 1
-    print("\nBLEU-4 score @ beam size of %d is %.4f." % (beam_size, evaluate(beam_size)))
+    for beam_size in range(1, 6):
+        print("\nBLEU-4 score @ beam size of %d is %.4f." % (beam_size, evaluate(beam_size)))
