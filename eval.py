@@ -8,12 +8,12 @@ from nltk.translate.bleu_score import corpus_bleu
 import torch.nn.functional as F
 from tqdm import tqdm
 import json
-
+from scipy.misc import imsave
 # Parameters
-data_folder = 'output'  # folder with data files saved by create_input_files.py
+data_folder = '/home/todd9527/a-PyTorch-Tutorial-to-Image-Captioning/output'  # folder with data files saved by create_input_files.py
 data_name = 'coco_5_cap_per_img_5_min_word_freq'  # base name shared by data files
-checkpoint = 'checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # model checkpoint
-word_map_file = 'output/WORDMAP_coco_5_cap_per_img_5_min_word_freq.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
+checkpoint = '/home/todd9527/a-PyTorch-Tutorial-to-Image-Captioning/checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # model checkpoint
+word_map_file = '/home/todd9527/a-PyTorch-Tutorial-to-Image-Captioning/output/WORDMAP_coco_5_cap_per_img_5_min_word_freq.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead 
 
@@ -68,10 +68,14 @@ def evaluate(beam_size):
             tqdm(loader, desc="EVALUATING AT BEAM SIZE " + str(beam_size))):
 
         k = beam_size
-
+        image=image.to(device)
+       # imsave('image'+str(i)+'.png',image)
         # Move to GPU device, if available
-        image = image.to(device)  # (1, 3, 256, 256)
-
+        #image = image.to(device)  # (1, 3, 256, 256)
+       # save_img = np.squeeze(image)
+       # save_img = np.rollaxis(save_img, 0,3)
+       # print(save_img.shape)
+       # imsave('image'+str(i)+'.png',save_img)
         # Encode
         encoder_out = encoder(image)  # (1, enc_image_size, enc_image_size, encoder_dim)
         enc_image_size = encoder_out.size(1)
@@ -179,11 +183,12 @@ def evaluate(beam_size):
 
         assert len(references) == len(hypotheses)
 
-        image_count += 1 
-        if image_count >= 1000:
-            json_to_save = {"hypotheses": hypotheses_readable, "references": references_readable}
-            with open("beam" + str( beam_size) + "_"+ captions_filename_1k, "w") as ofile: 
-                json.dump(json_to_save, ofile)
+        image_count += 1
+
+        if image_count >= 40:
+           # json_to_save = {"hypotheses": hypotheses_readable, "references": references_readable}
+           # with open("beam" + str( beam_size) + "_"+ captions_filename_1k, "w") as ofile: 
+           #     json.dump(json_to_save, ofile)
             break 
     # Calculate BLEU-4 scores
     bleu4 = corpus_bleu(references, hypotheses)
@@ -192,5 +197,5 @@ def evaluate(beam_size):
 
 
 if __name__ == '__main__':
-    for beam_size in range(1, 6):
+    for beam_size in range(1, 2):
         print("\nBLEU-4 score @ beam size of %d is %.4f." % (beam_size, evaluate(beam_size)))
